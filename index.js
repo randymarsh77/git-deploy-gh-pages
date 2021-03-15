@@ -89,6 +89,15 @@ if (GH_USER_NAME && GH_USER_EMAIL) {
 }
 
 exec('git add .');
+if (!pr) {
+	const hasStagedPRFiles =
+		exec('git diff --name-only --cached')
+			.split('\n')
+			.includes((x) => x.startsWith('pr/')).length > 0;
+	if (hasStagedPRFiles) {
+		exec('git reset pr');
+	}
+}
 
 const resolvedMessage = commitMessage.includes('#PR')
 	? commitMessage.replace('#PR', pr ? `PR #${pr}` : '')
