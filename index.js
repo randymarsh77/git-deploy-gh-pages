@@ -5,6 +5,11 @@ const fs = require('fs');
 const path = require('path');
 const shell = require('shelljs');
 
+const pr = process.env.GH_PR;
+if (pr) {
+	console.log(`Detected PR environment for PR #${pr}`);
+}
+
 function exec(command, options) {
 	console.log(`   executing: ${command} in ${shell.pwd()}`);
 	var ref = shell.exec(command, options);
@@ -65,16 +70,30 @@ const outDirectory = path.isAbsolute(stagingDirectory)
 shell.rm('-rf', outDirectory);
 exec(buildCommand);
 
+const relativeDestinationPath = pr ? path.join(branch, 'pr', pr) : branch;
+const destinationPath = path.join(workingDirectory, relativeDestinationPath);
+
 shell.rm('-rf', branch);
 exec(`git clone -b ${branch} ${remote} ${branch}`);
-shell.rm('-rf', `${branch}/*`);
-shell.exec(`cp -r ${outDirectory}${path.sep}. ${branch}${path.sep}`);
+shell.rm('-rf', `${destinationPath}${path.sep}*`);
+exec(`mkdir --parents ${destinationPath}`);
+exec(`rsync -a ${outDirectory}${path.sep} ${destinationPath}${path.sep}`);
 shell.rm('-rf', outDirectory);
 
 shell.cd(`./${branch}`);
+
+const { GH_USER_NAME, GH_USER_EMAIL } = process.env;
+if (GH_USER_NAME && GH_USER_EMAIL) {
+	exec(`git config user.name ${GH_USER_NAME}`);
+	exec(`git config user.email ${GH_USER_EMAIL}`);
+}
+
 exec('git add .');
 
-const commitResponse = shell.exec('git commit -m ' + JSON.stringify(commitMessage)).stdout;
+const resolvedMessage = commitMessage.includes('#PR')
+	? commitMessage.replace('#PR', pr ? `PR #${pr}` : '')
+	: commitMessage;
+const commitResponse = shell.exec('git commit -m ' + JSON.stringify(resolvedMessage)).stdout;
 const nothingToCommitMatch = commitResponse.match('nothing to commit');
 if (nothingToCommitMatch && nothingToCommitMatch.length > 0) {
 	console.log('Build artifacts unchanged, nothing to deploy.');
