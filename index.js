@@ -90,10 +90,9 @@ if (GH_USER_NAME && GH_USER_EMAIL) {
 
 exec('git add .');
 if (!pr) {
-	const hasStagedPRFiles =
-		exec('git diff --name-only --cached')
-			.split('\n')
-			.includes((x) => x.startsWith('pr/')).length > 0;
+	const hasStagedPRFiles = !!exec('git diff --name-only --cached')
+		.split('\n')
+		.find((x) => x.startsWith('pr/'));
 	if (hasStagedPRFiles) {
 		exec('git reset pr');
 	}
