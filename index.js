@@ -94,7 +94,7 @@ if (!pr) {
 		.split('\n')
 		.find((x) => x.startsWith('pr/'));
 	if (hasStagedPRFiles) {
-		exec('git reset pr');
+		exec('git checkout HEAD pr');
 	}
 }
 
