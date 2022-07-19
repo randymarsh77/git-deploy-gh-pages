@@ -11,6 +11,6 @@
     "url": "https://github.com/randymarsh77/git-deploy-gh-pages.git"
   },
   "dependencies": {
-    "shelljs": "^0.8.4"
+    "shelljs": "^0.8.5"
   }
 }
