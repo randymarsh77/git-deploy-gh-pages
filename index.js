@@ -56,11 +56,15 @@ Object.keys({ commitMessage, branch, stagingDirectory, buildCommand }).forEach((
 	}
 });
 
+const { GH_USER_NAME, GH_USER_EMAIL, GH_TOKEN } = process.env;
+const authenticatedScheme = GH_TOKEN ? `https://${GH_TOKEN}@` : 'https://';
+
 const remote = exec('git remote show origin', { silent: true })
 	.split('\n')
 	.map((x) => x.trim())
 	.find((x) => x.startsWith('Fetch URL:'))
 	.replace('Fetch URL:', '')
+	.replace('https://', authenticatedScheme)
 	.trim();
 
 const workingDirectory = shell.pwd().stdout;
@@ -82,7 +86,6 @@ shell.rm('-rf', outDirectory);
 
 shell.cd(`./${branch}`);
 
-const { GH_USER_NAME, GH_USER_EMAIL } = process.env;
 if (GH_USER_NAME && GH_USER_EMAIL) {
 	exec(`git config user.name ${GH_USER_NAME}`);
 	exec(`git config user.email ${GH_USER_EMAIL}`);
