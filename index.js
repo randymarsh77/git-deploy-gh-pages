@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 'use strict';
 
-const fs = require('fs');
-const path = require('path');
-const shell = require('shelljs');
-const { Octokit } = require('@octokit/rest');
+import fs from 'fs';
+import path from 'path';
+import shell from 'shelljs';
+import { Octokit } from '@octokit/rest';
 
 const pr = process.env.GH_PR;
 if (pr) {
