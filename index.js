@@ -4,6 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 const shell = require('shelljs');
+const { Octokit } = require('@octokit/rest');
 
 const pr = process.env.GH_PR;
 if (pr) {
@@ -120,3 +121,26 @@ if (filesChangedMatch && filesChangedMatch.length > 0) {
 }
 
 console.log('GitHub pages deployment success!');
+
+const pagesBaseUrl = process.env.GH_PAGES_BASE_URL;
+if (pr && pagesBaseUrl) {
+	const [owner, repo] = process.env.GITHUB_REPOSITORY?.split('/') ?? [];
+	const haveLinkData = !!owner && !!repo;
+	const linkToDeploy = haveLinkData ? `https://${pagesBaseUrl}/${owner}/${repo}/pr/${pr}` : null;
+
+	if (!!linkToDeploy) {
+		const ghBase = process.env.GH_API_BASE_URL ?? 'api.github.com';
+		const github = new Octokit({
+			baseUrl: `https://${ghBase}`,
+			auth: process.env.GH_TOKEN,
+		});
+		github.rest.issues.createComment({
+			issue_number: pr,
+			owner,
+			repo,
+			body: `Your PR has been [deployed](${linkToDeploy})! 🚀`,
+		});
+	} else {
+		console.log('No PR data; skipping adding comment.');
+	}
+}
