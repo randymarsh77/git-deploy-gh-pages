@@ -82,7 +82,7 @@ shell.rm('-rf', branch);
 exec(`git clone -b ${branch} ${remote} ${branch}`);
 shell.rm('-rf', `${destinationPath}${path.sep}*`);
 exec(`mkdir --parents ${destinationPath}`);
-exec(`rsync -a ${outDirectory}${path.sep} ${destinationPath}${path.sep}`);
+exec(`npx cpx2 ${outDirectory}${path.sep} ${destinationPath}${path.sep}`);
 shell.rm('-rf', outDirectory);
 
 shell.cd(`./${branch}`);
