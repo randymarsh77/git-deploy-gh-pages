@@ -88,7 +88,7 @@ const destinationPath = path.join(workingDirectory, relativeDestinationPath);
 shell.rm('-rf', branch);
 exec(`git clone -b ${branch} ${remote} ${branch}`);
 shell.rm('-rf', `${destinationPath}${path.sep}*`);
-exec(`mkdir --parents ${destinationPath}`);
+exec(`mkdir -p ${destinationPath}`);
 exec(`cp -r ${outDirectory}${path.sep}. ${destinationPath}${path.sep}.`);
 shell.rm('-rf', outDirectory);
 
