@@ -6,6 +6,13 @@ const path = require('path');
 const shell = require('shelljs');
 const { Octokit } = require('@octokit/rest');
 
+const ghBase = process.env.GH_API_BASE_URL ?? 'api.github.com';
+const github = new Octokit({
+	baseUrl: `https://${ghBase}`,
+	auth: process.env.GH_TOKEN,
+});
+const [owner, repo] = process.env.GITHUB_REPOSITORY?.split('/') ?? [];
+
 const pr = process.env.GH_PR;
 if (pr) {
 	console.log(`Detected PR environment for PR #${pr}`);
@@ -93,54 +100,77 @@ if (GH_USER_NAME && GH_USER_EMAIL) {
 }
 
 exec('git add .');
-if (!pr) {
-	const hasStagedPRFiles = !!exec('git diff --name-only --cached')
-		.split('\n')
-		.find((x) => x.startsWith('pr/'));
-	if (hasStagedPRFiles) {
-		exec('git checkout HEAD pr');
+Promise.resolve()
+	.then(restageOpenPRsIfNeeded)
+	.then(() => {
+		const resolvedMessage = commitMessage.includes('#PR')
+			? commitMessage.replace('#PR', pr ? `PR #${pr}` : '')
+			: commitMessage;
+		const commitResponse = shell.exec('git commit -m ' + JSON.stringify(resolvedMessage)).stdout;
+		const nothingToCommitMatch = commitResponse.match('nothing to commit');
+		if (nothingToCommitMatch && nothingToCommitMatch.length > 0) {
+			console.log('Build artifacts unchanged, nothing to deploy.');
+			console.log('Exiting...');
+			process.exit(0);
+		}
+
+		const filesChangedMatch = commitResponse.match('files changed');
+		if (filesChangedMatch && filesChangedMatch.length > 0) {
+			exec(`git push origin ${branch}`);
+			shell.cd('..');
+			shell.rm('-rf', branch);
+		}
+
+		console.log('GitHub pages deployment success!');
+
+		const pagesBaseUrl = process.env.GH_PAGES_BASE_URL;
+		if (pr && pagesBaseUrl) {
+			const haveLinkData = !!owner && !!repo;
+			const linkToDeploy = haveLinkData
+				? `https://${pagesBaseUrl}/${owner}/${repo}/pr/${pr}`
+				: null;
+
+			if (!!linkToDeploy) {
+				github.rest.issues
+					.createComment({
+						issue_number: pr,
+						owner,
+						repo,
+						body: `Your PR has been [deployed](${linkToDeploy})! 🚀`,
+					})
+					.catch((error) => {
+						console.error('Failed to add comment to PR.');
+						console.error(error);
+					});
+			} else {
+				console.log('No PR data; skipping adding comment.');
+			}
+		}
+	})
+	.catch((error) => {
+		console.error('GitHub pages deployment failed!');
+		console.error(error);
+		process.exit(1);
+	});
+
+function restageOpenPRsIfNeeded() {
+	if (pr) {
+		return Promise.resolve();
 	}
-}
 
-const resolvedMessage = commitMessage.includes('#PR')
-	? commitMessage.replace('#PR', pr ? `PR #${pr}` : '')
-	: commitMessage;
-const commitResponse = shell.exec('git commit -m ' + JSON.stringify(resolvedMessage)).stdout;
-const nothingToCommitMatch = commitResponse.match('nothing to commit');
-if (nothingToCommitMatch && nothingToCommitMatch.length > 0) {
-	console.log('Build artifacts unchanged, nothing to deploy.');
-	console.log('Exiting...');
-	process.exit(0);
-}
-
-const filesChangedMatch = commitResponse.match('files changed');
-if (filesChangedMatch && filesChangedMatch.length > 0) {
-	exec(`git push origin ${branch}`);
-	shell.cd('..');
-	shell.rm('-rf', branch);
-}
-
-console.log('GitHub pages deployment success!');
-
-const pagesBaseUrl = process.env.GH_PAGES_BASE_URL;
-if (pr && pagesBaseUrl) {
-	const [owner, repo] = process.env.GITHUB_REPOSITORY?.split('/') ?? [];
-	const haveLinkData = !!owner && !!repo;
-	const linkToDeploy = haveLinkData ? `https://${pagesBaseUrl}/${owner}/${repo}/pr/${pr}` : null;
-
-	if (!!linkToDeploy) {
-		const ghBase = process.env.GH_API_BASE_URL ?? 'api.github.com';
-		const github = new Octokit({
-			baseUrl: `https://${ghBase}`,
-			auth: process.env.GH_TOKEN,
+	return github.rest.pulls
+		.list({ owner, repo, state: 'open' })
+		.then((response) => response.data.map((x) => x.number))
+		.then((openPRs) => {
+			const stagedFiles = exec('git diff --name-only --cached').split('\n');
+			openPRs.forEach((prNumber) => {
+				console.log(`Resetting files for open PR: ${prNumber}`);
+				stagedFiles
+					.filter((file) => file.startsWith(`pr${path.sep}${prNumber}`))
+					.forEach((file) => {
+						console.log(`Restaging files for open PRs: ${prNumber}`);
+						exec(`git checkout HEAD ${file}`);
+					});
+			});
 		});
-		github.rest.issues.createComment({
-			issue_number: pr,
-			owner,
-			repo,
-			body: `Your PR has been [deployed](${linkToDeploy})! 🚀`,
-		});
-	} else {
-		console.log('No PR data; skipping adding comment.');
-	}
 }
