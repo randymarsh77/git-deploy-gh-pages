@@ -1,6 +1,6 @@
 {
   "name": "git-deploy-gh-pages",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Builds and pushes your GH pages deployment.",
   "main": "index.js",
   "bin": "index.js",
