@@ -50,6 +50,7 @@ const defaults = {
 	commitMessage: 'Deploy to GitHub Pages.',
 	branch: 'gh-pages',
 	stagingDirectory: 'gh-pages-staging',
+	comment: 'Your PR has been [deployed]! 🚀',
 };
 
 const config = {
@@ -57,7 +58,7 @@ const config = {
 	...userConfig,
 };
 
-const { commitMessage, branch, stagingDirectory, buildCommand } = config;
+const { commitMessage, branch, stagingDirectory, buildCommand, comment } = config;
 Object.keys({ commitMessage, branch, stagingDirectory, buildCommand }).forEach((x) => {
 	if (typeof config[x] !== 'string') {
 		logConfigErrorAndExit(`${x} must be a string.`);
@@ -131,12 +132,15 @@ Promise.resolve()
 				: null;
 
 			if (!!linkToDeploy) {
+				const formattedComment = comment.match(/\[.*?\]/)
+					? comment.replace(/\[(.*?)\]/, `[$1](${linkToDeploy})`)
+					: comment;
 				github.rest.issues
 					.createComment({
 						issue_number: pr,
 						owner,
 						repo,
-						body: `Your PR has been [deployed](${linkToDeploy})! 🚀`,
+						body: formattedComment,
 					})
 					.catch((error) => {
 						console.error('Failed to add comment to PR.');
